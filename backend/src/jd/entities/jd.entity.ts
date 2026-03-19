@@ -11,6 +11,9 @@ export class JobDescription {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  userId: string;
+
   @Column({ type: 'varchar', length: 255 })
   jobTitle: string;
 

@@ -7,6 +7,8 @@ import JDPreview from './components/JDPreview';
 import QualityChecker from './components/QualityChecker';
 import SavedJDs from './components/SavedJDs';
 import { api } from './services/api';
+import { useAuth } from './AuthContext';
+import AuthForms from './components/AuthForms';
 import type {
   FormData, JDVariant, QualityResult, SavedJD, SavedJDDetail, TabType, Notification,
 } from './types';
@@ -18,6 +20,7 @@ const INITIAL_FORM: FormData = {
 };
 
 export default function App() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('create');
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [skills, setSkills] = useState<string[]>([]);
@@ -25,6 +28,7 @@ export default function App() {
   const [generatedJD, setGeneratedJD] = useState('');
   const [variants, setVariants] = useState<JDVariant[]>([]);
   const [activeVariant, setActiveVariant] = useState(0);
+  const [selectedVariants, setSelectedVariants] = useState<Set<number>>(new Set([0]));
   const [quality, setQuality] = useState<QualityResult | null>(null);
   const [savedJDs, setSavedJDs] = useState<SavedJD[]>([]);
   const [notification, setNotification] = useState<Notification | null>(null);
@@ -54,8 +58,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    loadSavedJDs();
-  }, [loadSavedJDs]);
+    if (user) {
+      loadSavedJDs();
+    } else {
+      // Clear all state on logout to prevent cross-account data leaking
+      setSavedJDs([]);
+      setFormData(INITIAL_FORM);
+      setSkills([]);
+      setSuggestedSkills([]);
+      setGeneratedJD('');
+      setVariants([]);
+      setQuality(null);
+      setActiveTab('create');
+    }
+  }, [user, loadSavedJDs]);
 
   // ── Auto-suggest skills when role + experience are both filled ──────────────
   useEffect(() => {
@@ -121,6 +137,7 @@ export default function App() {
       const variantList = res.variants ?? [{ label: '🎯 Formal', jd: res.generatedJD }];
       setVariants(variantList);
       setGeneratedJD(variantList[0].jd);
+      setSelectedVariants(new Set([0]));
       showNotification(`✨ 3 JD variants generated! Choose the best one.`, 'success');
     } catch (err: any) {
       showNotification(err.message || 'Failed to generate JD', 'error');
@@ -222,18 +239,33 @@ export default function App() {
   };
 
   const handleSave = async () => {
-    if (!generatedJD) return;
+    if (!generatedJD && variants.length === 0) return;
     setIsSaving(true);
     try {
-      await api.saveJD({
-        ...formData,
-        skills,
-        generatedJD,
-        qualityScore: quality?.score || 0,
-        qualitySuggestions: quality?.suggestions || [],
-      });
+      const toSave = variants.filter((_, i) => selectedVariants.has(i));
+      // Fallback if none selected
+      if (toSave.length === 0) {
+        if (variants[activeVariant]) {
+          toSave.push(variants[activeVariant]);
+        } else {
+          toSave.push({ label: 'Manual Edit', jd: generatedJD });
+        }
+      }
+
+      await Promise.all(toSave.map(v => {
+        const titleSuffix = variants.length > 1 ? ` - ${v.label.replace(/[^a-zA-Z0-9 ]/g, '').trim()}` : '';
+        return api.saveJD({
+          ...formData,
+          skills,
+          jobTitle: `${formData.jobTitle}${titleSuffix}`,
+          generatedJD: v.jd,
+          qualityScore: quality?.score || 0,
+          qualitySuggestions: quality?.suggestions || [],
+        });
+      }));
+
       await loadSavedJDs();
-      showNotification('💾 JD saved successfully!', 'success');
+      showNotification(`💾 ${toSave.length} JD${toSave.length > 1 ? 's' : ''} saved successfully!`, 'success');
     } catch (err: any) {
       showNotification(err.message || 'Failed to save JD', 'error');
     } finally {
@@ -276,6 +308,17 @@ export default function App() {
   };
 
 
+
+  if (!user) {
+    return (
+      <div className="app">
+        <Header activeTab="create" setActiveTab={() => {}} savedCount={0} />
+        <main className="main-content">
+          <AuthForms />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -340,15 +383,33 @@ export default function App() {
                   isSaving={isSaving}
                   variants={variants}
                   activeVariant={activeVariant}
+                  selectedVariants={selectedVariants}
                   onSelectVariant={(idx) => {
                     setActiveVariant(idx);
                     setGeneratedJD(variants[idx].jd);
                     setQuality(null);
                   }}
+                  onToggleVariant={(idx) => {
+                    setSelectedVariants(prev => {
+                      const next = new Set(prev);
+                      if (next.has(idx)) next.delete(idx);
+                      else next.add(idx);
+                      return next;
+                    });
+                  }}
                   onSave={handleSave}
                   onCopy={handleCopy}
                   onCheckQuality={handleCheckQuality}
-                  onChangeJD={setGeneratedJD}
+                  onChangeJD={(newJd) => {
+                    setGeneratedJD(newJd);
+                    setVariants(prev => {
+                      const updated = [...prev];
+                      if (updated[activeVariant]) {
+                         updated[activeVariant] = { ...updated[activeVariant], jd: newJd };
+                      }
+                      return updated;
+                    });
+                  }}
                   isCheckingQuality={isCheckingQuality}
                   isRefining={isRefining}
                   onRefine={handleRefineJD}

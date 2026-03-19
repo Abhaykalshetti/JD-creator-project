@@ -7,7 +7,10 @@ import {
   Param,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { JdService } from './jd.service';
 import {
   GenerateJdDto,
@@ -52,25 +55,29 @@ export class JdController {
     return this.jdService.refineJD(dto);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Post('save')
   @HttpCode(HttpStatus.CREATED)
-  saveJD(@Body() dto: SaveJdDto) {
-    return this.jdService.saveJD(dto);
+  saveJD(@Body() dto: SaveJdDto, @Request() req) {
+    return this.jdService.saveJD(dto, req.user.id);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Get('saved')
-  getSavedJDs() {
-    return this.jdService.getSavedJDs();
+  getSavedJDs(@Request() req) {
+    return this.jdService.getSavedJDs(req.user.id);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Get('saved/:id')
-  getSavedJDById(@Param('id') id: string) {
-    return this.jdService.getSavedJDById(id);
+  getSavedJDById(@Param('id') id: string, @Request() req) {
+    return this.jdService.getSavedJDById(id, req.user.id);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Delete('saved/:id')
   @HttpCode(HttpStatus.OK)
-  deleteJD(@Param('id') id: string) {
-    return this.jdService.deleteJD(id);
+  deleteJD(@Param('id') id: string, @Request() req) {
+    return this.jdService.deleteJD(id, req.user.id);
   }
 }

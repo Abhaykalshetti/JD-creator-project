@@ -5,6 +5,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JdModule } from './jd/jd.module';
 import { JobDescription } from './jd/entities/jd.entity';
+import { AuthModule } from './auth/auth.module';
+import { User } from './auth/user.entity';
 
 @Module({
   imports: [
@@ -18,12 +20,13 @@ import { JobDescription } from './jd/entities/jd.entity';
         username: config.get<string>('DB_USER', 'postgres'),
         password: config.get<string>('DB_PASS', 'postgres'),
         database: config.get<string>('DB_NAME', 'jd_creator'),
-        entities: [JobDescription],
+        entities: [JobDescription, User],
         synchronize: true,
         logging: false,
       }),
     }),
     JdModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

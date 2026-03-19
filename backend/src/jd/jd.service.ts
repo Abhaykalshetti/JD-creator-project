@@ -316,9 +316,9 @@ Provide 3-5 specific, actionable suggestions. Return just the JSON, nothing else
     }
   }
 
-  async saveJD(dto: SaveJdDto): Promise<JobDescription> {
+  async saveJD(dto: SaveJdDto, userId: string): Promise<JobDescription> {
     try {
-      const jd = this.jdRepository.create(dto);
+      const jd = this.jdRepository.create({ ...dto, userId });
       return await this.jdRepository.save(jd);
     } catch (error) {
       throw new InternalServerErrorException(
@@ -327,8 +327,9 @@ Provide 3-5 specific, actionable suggestions. Return just the JSON, nothing else
     }
   }
 
-  async getSavedJDs(): Promise<JobDescription[]> {
+  async getSavedJDs(userId: string): Promise<JobDescription[]> {
     return this.jdRepository.find({
+      where: { userId },
       order: { createdAt: 'DESC' },
       select: [
         'id',
@@ -345,14 +346,14 @@ Provide 3-5 specific, actionable suggestions. Return just the JSON, nothing else
     });
   }
 
-  async getSavedJDById(id: string): Promise<JobDescription> {
-    const jd = await this.jdRepository.findOne({ where: { id } });
+  async getSavedJDById(id: string, userId: string): Promise<JobDescription> {
+    const jd = await this.jdRepository.findOne({ where: { id, userId } });
     if (!jd) throw new NotFoundException(`JD with ID ${id} not found`);
     return jd;
   }
 
-  async deleteJD(id: string): Promise<{ message: string }> {
-    const jd = await this.jdRepository.findOne({ where: { id } });
+  async deleteJD(id: string, userId: string): Promise<{ message: string }> {
+    const jd = await this.jdRepository.findOne({ where: { id, userId } });
     if (!jd) throw new NotFoundException(`JD with ID ${id} not found`);
     await this.jdRepository.delete(id);
     return { message: 'Job description deleted successfully' };

@@ -8,7 +8,9 @@ interface JDPreviewProps {
   isSaving: boolean;
   variants: JDVariant[];
   activeVariant: number;
+  selectedVariants: Set<number>;
   onSelectVariant: (idx: number) => void;
+  onToggleVariant: (idx: number) => void;
   onSave: () => void;
   onCopy: () => void;
   onCheckQuality: () => void;
@@ -27,7 +29,7 @@ const VARIANT_COLORS = [
 
 export default function JDPreview({
   generatedJD, isGenerating, quality, isSaving,
-  variants, activeVariant, onSelectVariant,
+  variants, activeVariant, selectedVariants, onSelectVariant, onToggleVariant,
   onSave, onCopy, onCheckQuality, onChangeJD, isCheckingQuality,
   isRefining, onRefine
 }: JDPreviewProps) {
@@ -97,31 +99,44 @@ export default function JDPreview({
             {variants.map((v, i) => {
               const c = VARIANT_COLORS[i];
               const isActive = i === activeVariant;
+              const isSelected = selectedVariants ? selectedVariants.has(i) : false;
               return (
-                <button
+                <div
                   key={i}
-                  id={`variant-tab-${i}`}
-                  onClick={() => onSelectVariant(i)}
                   style={{
-                    flex: 1, padding: '8px 10px', borderRadius: 10, cursor: 'pointer',
+                    flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '8px 10px', borderRadius: 10,
                     border: `1.5px solid ${isActive ? c.accent : 'var(--border)'}`,
                     background: isActive ? c.bg : 'transparent',
-                    color: isActive ? c.accent : 'var(--text-muted)',
-                    fontWeight: isActive ? 700 : 500,
-                    fontSize: '0.8rem',
                     transition: 'all 0.2s ease',
-                    outline: 'none',
                     boxShadow: isActive ? `0 0 12px ${c.accent}33` : 'none',
                   }}
                 >
-                  {v.label}
-                  {isActive && (
-                    <span style={{
-                      display: 'block', fontSize: '0.65rem', fontWeight: 400,
-                      color: c.accent, marginTop: 2,
-                    }}>● Selected</span>
-                  )}
-                </button>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggleVariant(i)}
+                    style={{ cursor: 'pointer', width: 16, height: 16, accentColor: c.accent }}
+                    title="Select this variant to save"
+                  />
+                  <div
+                    onClick={() => onSelectVariant(i)}
+                    style={{
+                      flex: 1, cursor: 'pointer',
+                      color: isActive ? c.accent : 'var(--text-muted)',
+                      fontWeight: isActive ? 700 : 500,
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    {v.label}
+                    {isActive && (
+                      <span style={{
+                        display: 'block', fontSize: '0.65rem', fontWeight: 400,
+                        color: c.accent, marginTop: 2,
+                      }}>● Editing</span>
+                    )}
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -155,7 +170,9 @@ export default function JDPreview({
           >
             {isSaving
               ? <><span className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} /> Saving…</>
-              : '💾 Save JD'}
+              : selectedVariants && selectedVariants.size > 0 
+                  ? `💾 Save Selected (${selectedVariants.size})` 
+                  : '💾 Save JD'}
           </button>
         </div>
       </div>
