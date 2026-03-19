@@ -40,8 +40,7 @@ export default function App() {
   const [isRefining, setIsRefining] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Track last auto-suggested combination so we don't re-fire needlessly
-  const lastAutoSuggestRef = useRef('');
+  // Removed lastAutoSuggestRef since auto-suggest is disabled
 
   const showNotification = (message: string, type: Notification['type'] = 'success') => {
     setNotification({ message, type });
@@ -73,40 +72,10 @@ export default function App() {
     }
   }, [user, loadSavedJDs]);
 
-  // ── Auto-suggest skills when role + experience are both filled ──────────────
-  useEffect(() => {
-    const { jobTitle, experience } = formData;
-    if (!jobTitle.trim() || !experience) return;
-
-    const key = `${jobTitle.trim().toLowerCase()}::${experience}`;
-    if (lastAutoSuggestRef.current === key) return; // already fetched for this combo
-
-    const timer = setTimeout(async () => {
-      lastAutoSuggestRef.current = key;
-      setIsSuggestingSkills(true);
-      try {
-        const { skills: suggested } = await api.suggestSkills({
-          jobTitle: jobTitle.trim(),
-          experience,
-          existingSkills: skills,
-        });
-        setSuggestedSkills(suggested);
-        showNotification(`✦ ${suggested.length} skills suggested for ${experience} ${jobTitle}!`, 'info');
-      } catch {
-        // silently fail – user can still click the manual button
-      } finally {
-        setIsSuggestingSkills(false);
-      }
-    }, 600); // 600 ms debounce
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.jobTitle, formData.experience]);
+  // ── Auto-suggest skills manually via button (useEffect removed) ──────────────
 
   const handleFormChange = (field: keyof FormData, value: string) => {
-    // Reset auto-suggest cache so changing the role fires fresh suggestions
     if (field === 'jobTitle' || field === 'experience') {
-      lastAutoSuggestRef.current = '';
       setSuggestedSkills([]);
     }
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -266,6 +235,16 @@ export default function App() {
 
       await loadSavedJDs();
       showNotification(`💾 ${toSave.length} JD${toSave.length > 1 ? 's' : ''} saved successfully!`, 'success');
+      
+      // ✅ Clear all data in the "Create JD" tab after successful save
+      setFormData(INITIAL_FORM);
+      setSkills([]);
+      setSuggestedSkills([]);
+      setGeneratedJD('');
+      setVariants([]);
+      setActiveVariant(0);
+      setSelectedVariants(new Set([0]));
+      setQuality(null);
     } catch (err: any) {
       showNotification(err.message || 'Failed to save JD', 'error');
     } finally {
@@ -366,7 +345,6 @@ export default function App() {
                 onRemoveSkill={handleRemoveSkill}
                 onSetSkills={(newSkills) => {
                   setSkills(newSkills);
-                  lastAutoSuggestRef.current = ''; // reset so auto-suggest fires for new template
                 }}
                 onClearSuggestions={() => setSuggestedSkills([])}
                 onGenerate={handleGenerate}

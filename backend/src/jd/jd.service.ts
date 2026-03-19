@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { OpenAI } from 'openai';
 import { JobDescription } from './entities/jd.entity';
 import {
   GenerateJdDto,
@@ -19,25 +19,27 @@ import {
 
 @Injectable()
 export class JdService {
-  private genAI: GoogleGenerativeAI;
-  private model: any;
+  private openai: OpenAI;
+  private readonly modelName = 'llama-3.1-8b-instant';
 
   constructor(
     @InjectRepository(JobDescription)
     private readonly jdRepository: Repository<JobDescription>,
     private readonly configService: ConfigService,
   ) {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+    const apiKey = this.configService.get<string>('GROQ_API_KEY');
     if (apiKey) {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-      this.model = this.genAI.getGenerativeModel({model: 'gemini-2.5-flash'});
+      this.openai = new OpenAI({
+        apiKey: apiKey,
+        baseURL: 'https://api.groq.com/openai/v1',
+      });
     }
   }
 
   async generateJD(dto: GenerateJdDto): Promise<{ generatedJD: string; variants: { label: string; jd: string }[] }> {
-    if (!this.model) {
+    if (!this.openai) {
       throw new InternalServerErrorException(
-        'Gemini API key not configured. Please set GEMINI_API_KEY in .env',
+        'Groq API key not configured. Please set GROQ_API_KEY in .env',
       );
     }
 
@@ -45,76 +47,103 @@ export class JdService {
       ? dto.skills.join(', ')
       : 'To be determined';
 
-    const roleBlock = `ROLE DETAILS:
+
+    const prompt = `You are a Senior HR Executive and Expert Technical Recruiter. Your task is to generate highly professional, structured Job Descriptions suitable for job portals.
+
+### CONSTRAINTS
+1. Ensure the JD is clear, concise, and professional.
+2. Avoid overly generic descriptions; tailor it to the specific role.
+3. Maintain consistent formatting. 
+4. DO NOT include unrelated explanations, conversational filler, or preamble.
+5. Provide the exact sections requested below.
+
+### ROLE INPUTS
 - Job Title: ${dto.jobTitle}
 - Company: ${dto.company || 'Our Company'}
 - Location: ${dto.location || 'Location not specified'}
-- Experience Required: ${dto.experience || 'Relevant experience required'}
 - Employment Type: ${dto.jobType || 'Full-time'}
-- Work Arrangement: ${dto.workMode || 'On-site'}
-- Salary / CTC: ${dto.salaryRange || 'Competitive, based on experience'}
-- Department: ${dto.department || 'Not specified'}
-- Key Skills: ${skillsList}
-- Core Responsibilities: ${dto.responsibilities || 'As per role requirements'}
-- Qualifications: ${dto.qualifications || 'Relevant degree and professional experience'}`;
+- Experience Required: ${dto.experience || 'Not specified'}
+- Salary / CTC: ${dto.salaryRange || 'Not specified'}
+- Required Skills: ${dto.skills?.join(', ') || 'Not specified'}
+- Core Responsibilities: ${dto.responsibilities || 'As per standard industry requirements'}
+- Qualifications: ${dto.qualifications || 'Relevant degree'}
 
-    const sections = `Generate a structured job description with ALL of these plain-text sections:
+### EXPECTED STRUCTURE
+For each generated variant, include only plain text with these sections:
+1. Job Title
+2. Company Overview (2-3 sentences)
+3. Job Summary
+4. Key Responsibilities (6-8 bullet points using •)
+5. Required Skills & Qualifications (bullet points using •)
+6. Preferred Skills (optional, bullet points using •)
+7. Work Details (Location, Type, Experience, Salary)
+8. Benefits
+9. Application Process
 
-About the Company
-(2-3 sentences about culture and mission)
+### INSTRUCTIONS
+You must generate THREE versions of this job description based on the exact structure above, but varying the tone:
+1. "🎯 Formal": Corporate, authoritative, direct, and highly professional.
+2. "🚀 Engaging": Energetic, enthusiastic, candidate-friendly with inclusive language.
+3. "⚡ Concise": To-the-point, brief, with no filler words. 
 
-Role Overview
-(3-4 sentences about role impact and purpose)
-
-Key Responsibilities
-(8-10 bullet points starting with •)
-
-Required Skills and Qualifications
-(6-8 bullet points starting with •)
-
-Preferred Skills
-(4-5 nice-to-have bullet points starting with •)
-
-What We Offer
-(5-6 benefits as bullet points starting with •)
-
-Work Details
-Location: [value] | Type: [value] | Mode: [value] | Experience: [value] | Salary: [value]
-
-Use plain text only. Do NOT use markdown symbols like ** or ##. Use • for all bullet points.`;
-
-    const tones = [
-      {
-        label: '🎯 Formal',
-        instruction: 'Write in a formal, corporate, and authoritative tone. Be direct, precise, and professional. Suitable for established companies and senior roles.',
-      },
-      {
-        label: '🚀 Engaging',
-        instruction: 'Write in an energetic, enthusiastic, and candidate-friendly tone. Use inclusive language, highlight growth opportunities, and make the role sound exciting. Suitable for startups and modern companies.',
-      },
-      {
-        label: '⚡ Concise',
-        instruction: 'Write in a concise, to-the-point tone. Keep each section brief but complete. Avoid filler words. Ideal for busy candidates who scan JDs quickly.',
-      },
-    ];
+Return ONLY a strictly valid JSON object matching this format, with no markdown code blocks outside of it:
+{
+  "variants": [
+    { "label": "🎯 Formal", "jd": "<formal text here>" },
+    { "label": "🚀 Engaging", "jd": "<engaging text here>" },
+    { "label": "⚡ Concise", "jd": "<concise text here>" }
+  ]
+}`;
 
     try {
-      const results = await Promise.all(
-        tones.map(async (tone) => {
-          const prompt = `You are a senior HR professional and expert technical recruiter. ${tone.instruction}
+      const response = await this.openai.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      
+      let text = response.choices[0].message.content?.trim() || '';
+      
+      // ── ROBUST JSON EXTRACTION ──
+      // This regex attempts to find the outermost { ... } block.
+      // It handles cases where the AI adds preamble or postamble text.
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        text = jsonMatch[0];
+      }
 
-${roleBlock}
+      try {
+        const parsedData = JSON.parse(text);
+        
+        // Handle cases where AI might wrap the array in a different key or return it directly
+        const rawVariants = parsedData.variants || parsedData.results || (Array.isArray(parsedData) ? parsedData : []);
+        
+        if (!Array.isArray(rawVariants) || rawVariants.length === 0) {
+           // Fallback if variants is missing but generatedJD exists at top level
+           const singleJD = parsedData.generatedJD || text;
+           return {
+             generatedJD: singleJD,
+             variants: [{ label: '🎯 Formal', jd: singleJD }]
+           };
+        }
 
-${sections}`;
-          const result = await this.model.generateContent(prompt);
-          return { label: tone.label, jd: result.response.text() };
-        }),
-      );
+        // Map to ensure we have the correct keys (label, jd)
+        const variants = rawVariants.map((v, i) => ({
+          label: v.label || v.style || v.title || `Variant ${i + 1}`,
+          jd: v.jd || v.content || v.text || '',
+        })).filter(v => v.jd.trim().length > 0);
 
-      return {
-        generatedJD: results[0].jd, // default to first for backward compat
-        variants: results,
-      };
+        return {
+          generatedJD: variants[0]?.jd || '',
+          variants: variants.length > 0 ? variants : [{ label: '🎯 Formal', jd: parsedData.generatedJD || '' }],
+        };
+      } catch (parseError) {
+        console.error('JSON Parse Error in generateJD:', parseError.message, 'Raw text:', text);
+        // Last resort fallback: if it's not JSON, treat the whole response as a single JD
+        return {
+          generatedJD: text,
+          variants: [{ label: '🎯 Formal', jd: text }],
+        };
+      }
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to generate JD: ${error.message}`,
@@ -123,28 +152,35 @@ ${sections}`;
   }
 
   async refineJD(dto: RefineJdDto): Promise<{ refinedJD: string }> {
-    if (!this.model) {
-      throw new InternalServerErrorException('Gemini API key not configured');
+    if (!this.openai) {
+      throw new InternalServerErrorException('Groq API key not configured');
     }
 
-    const prompt = `You are a senior HR expert. A recruiter has provided an existing job description and wants you to refine it based on their specific instruction.
+    const prompt = `You are a Senior HR Executive and Expert Technical Recruiter. Your task is to refine an existing Job Description based on specific instructions.
 
+### CONSTRAINTS
+1. Apply the recruiter's instruction precisely and professionally.
+2. Preserve the original structure and all sections.
+3. DO NOT add markdown symbols like ** or ##. Use plain text only.
+4. Use • for all bullet points.
+5. Return ONLY the refined job description text, nothing else — no explanations, no notes, no preamble.
+
+### INPUTS
 EXISTING JOB DESCRIPTION:
 ${dto.currentJD}
 
 RECRUITER'S INSTRUCTION:
 ${dto.instruction}
 
-Rules:
-- Apply the recruiter's instruction precisely and professionally to the job description.
-- Preserve the original structure and all sections (About the Company, Role Overview, Key Responsibilities, Required Skills, Preferred Skills, What We Offer, Work Details).
-- Do NOT add markdown symbols like ** or ##. Use plain text only.
-- Use • for all bullet points.
-- Return only the refined job description text, nothing else — no explanations, no notes, no preamble.`;
+### INSTRUCTIONS
+Generate the updated job description incorporating all changes.`;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const refinedJD = result.response.text();
+      const response = await this.openai.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const refinedJD = response.choices[0].message.content || '';
       return { refinedJD };
     } catch (error) {
       throw new InternalServerErrorException(
@@ -156,8 +192,8 @@ Rules:
   async suggestSkills(
     dto: SuggestSkillsDto,
   ): Promise<{ skills: string[] }> {
-    if (!this.model) {
-      throw new InternalServerErrorException('Gemini API key not configured');
+    if (!this.openai) {
+      throw new InternalServerErrorException('Groq API key not configured');
     }
 
     const existingText = dto.existingSkills?.length
@@ -167,28 +203,35 @@ Rules:
       ? `Experience Level: ${dto.experience}`
       : '';
 
-    const prompt = `You are an expert technical recruiter. Suggest additional relevant skills for this job role.
+    const prompt = `You are a Senior HR Executive and Expert Technical Recruiter. Based on the job title and experience level provided, suggest additional relevant skills.
 
-Job Title: ${dto.jobTitle}
-${expContext}
-Already Listed Skills: ${existingText}
+### CONSTRAINTS
+1. Suggest 10-12 additional skills NOT already listed.
+2. Tailor them specifically to the target experience level.
+3. Include a mix of technical and soft skills.
+4. Return ONLY a valid JSON array of strings. 
+5. No explanations, no markdown code blocks, no preamble.
 
-Suggest 10-12 additional skills NOT already listed. Tailor them to the experience level:
-- Junior: focus on foundational technologies, core frameworks, and basic tooling
-- Mid-Level: include mid-tier tools, patterns, collaboration tools, and some architecture knowledge
-- Senior: include system design, advanced tools, performance, cloud, and architecture patterns
-- Lead: include system architecture, team leadership, mentoring, project planning, and strategic technologies
+### INPUTS
+- Job Title: ${dto.jobTitle}
+- Experience Level: ${dto.experience || 'Not specified'}
+- Already Listed Skills: ${existingText}
 
-Include a mix of technical and soft skills appropriate for the level.
+### EXPERIENCE LEVEL GUIDELINES
+- Junior: foundational technologies, core frameworks, basic tooling.
+- Mid-Level: mid-tier tools, design patterns, collaboration tools.
+- Senior: system design, performance optimization, cloud architecture.
+- Lead: team leadership, mentoring, strategic technology planning.
 
-Return ONLY a valid JSON array of strings. Example:
-["Spring Boot", "Docker", "REST APIs", "PostgreSQL", "Git", "Agile", "Team Leadership"]
-
-Return just the JSON array, no explanation or markdown.`;
+### EXPECTED FORMAT
+["Skill 1", "Skill 2", "Skill 3", ...]`;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const text = result.response.text().trim();
+      const response = await this.openai.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const text = response.choices[0].message.content?.trim() || '';
       const jsonMatch = text.match(/\[[\s\S]*?\]/);
       
       if (jsonMatch) {
@@ -215,32 +258,39 @@ Return just the JSON array, no explanation or markdown.`;
   }
 
   async suggestReqQual(dto: SuggestReqQualDto): Promise<{ responsibilities: string; qualifications: string }> {
-    if (!this.model) {
-      throw new InternalServerErrorException('Gemini API key not configured');
+    if (!this.openai) {
+      throw new InternalServerErrorException('Groq API key not configured');
     }
 
     const skillsContext = dto.skills?.length ? `Required Skills: ${dto.skills.join(', ')}` : '';
     const expContext = dto.experience ? `Experience Level: ${dto.experience}` : '';
 
-    const prompt = `You are an expert HR writer. Draft the "Responsibilities" and "Qualifications" sections for the following job role.
+    const prompt = `You are a Senior HR Executive and Expert Technical Recruiter. Draft the detailed "Responsibilities" and "Qualifications" sections for a job role.
 
-Job Title: ${dto.jobTitle}
-${expContext}
-${skillsContext}
+### CONSTRAINTS
+1. Create professional and realistic bullet points starting with "• ".
+2. Use "\\n" for newlines in the string values.
+3. Provide 6-8 bullet points for responsibilities and 4-6 for qualifications.
+4. Return ONLY a valid JSON object. 
+5. No markdown formatting, no preamble.
 
-Create professional and realistic bullet points.
+### INPUTS
+- Job Title: ${dto.jobTitle}
+- Experience Level: ${dto.experience || 'Not specified'}
+- Required Skills: ${dto.skills?.join(', ') || 'Not specified'}
 
-Return ONLY a valid JSON object strictly matching this format:
+### EXPECTED JSON FORMAT
 {
-  "responsibilities": "• Point 1\\n• Point 2\\n• Point 3",
-  "qualifications": "• Qual 1\\n• Qual 2\\n• Qual 3"
-}
-
-Do not add markdown formatting around the JSON. Use "\\n" for newlines in the string values. Use "• " to start each point. Provide around 6-8 bullet points for responsibilities and 4-6 for qualifications.`;
+  "responsibilities": "• Responsibility 1\\n• Responsibility 2",
+  "qualifications": "• Qualification 1\\n• Qualification 2"
+}`;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      let text = result.response.text().trim();
+      const response = await this.openai.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      let text = response.choices[0].message.content?.trim() || '';
       
       // Strip markdown code blocks if the AI maliciously added them despite instructions
       if (text.startsWith('```json')) {
@@ -271,30 +321,41 @@ Do not add markdown formatting around the JSON. Use "\\n" for newlines in the st
   async checkQuality(
     dto: CheckQualityDto,
   ): Promise<{ score: number; grade: string; suggestions: string[] }> {
-    if (!this.model) {
-      throw new InternalServerErrorException('Gemini API key not configured');
+    if (!this.openai) {
+      throw new InternalServerErrorException('Groq API key not configured');
     }
 
-    const prompt = `You are a JD quality expert. Analyze this job description and provide a quality score.
+    const prompt = `You are a JD quality expert. Analyze the provided job description and provide a quality evaluation.
 
+### EVALUATION CRITERIA
+- Completeness, clarity, and specificity.
+- Professional tone and appeal to candidates.
+- Structure and formatting.
+
+### CONSTRAINTS
+1. Return ONLY a valid JSON object.
+2. Score must be between 0 and 100.
+3. Grade must be one of: Excellent, Good, Fair, Poor.
+4. Provide 3-5 specific, actionable suggestions.
+5. No preamble, no markdown code blocks.
+
+### INPUT
 JOB DESCRIPTION:
 ${dto.generatedJD}
 
-Evaluate based on: completeness, clarity, specificity, professional tone, structure, and candidate appeal.
-
-Return ONLY a valid JSON object:
+### EXPECTED JSON FORMAT
 {
-  "score": <integer 0-100>,
-  "grade": "<Excellent|Good|Fair|Poor>",
-  "suggestions": ["actionable suggestion 1", "suggestion 2", "suggestion 3"]
-}
-
-Score guide: 90-100=Excellent, 75-89=Good, 60-74=Fair, below 60=Poor.
-Provide 3-5 specific, actionable suggestions. Return just the JSON, nothing else.`;
+  "score": 85,
+  "grade": "Good",
+  "suggestions": ["Suggestion 1", "Suggestion 2"]
+}`;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const text = result.response.text().trim();
+      const response = await this.openai.chat.completions.create({
+        model: this.modelName,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const text = response.choices[0].message.content?.trim() || '';
       const jsonMatch = text.match(/\{[\s\S]*?\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
