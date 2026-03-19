@@ -86,7 +86,7 @@ You must generate THREE versions of this job description based on the exact stru
 2. "🚀 Engaging": Energetic, enthusiastic, candidate-friendly with inclusive language.
 3. "⚡ Concise": To-the-point, brief, with no filler words. 
 
-Return ONLY a strictly valid JSON object matching this format, with no markdown code blocks outside of it:
+Return ONLY a strictly valid JSON object matching this format. Use "\\n" for all newlines within the "jd" string values. Do NOT use trailing backslashes for line continuation.
 {
   "variants": [
     { "label": "🎯 Formal", "jd": "<formal text here>" },
@@ -94,18 +94,19 @@ Return ONLY a strictly valid JSON object matching this format, with no markdown 
     { "label": "⚡ Concise", "jd": "<concise text here>" }
   ]
 }`;
-
+ 
     try {
       const response = await this.openai.chat.completions.create({
         model: this.modelName,
         messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
       });
       
       let text = response.choices[0].message.content?.trim() || '';
       
-      // ── ROBUST JSON EXTRACTION ──
-      // This regex attempts to find the outermost { ... } block.
-      // It handles cases where the AI adds preamble or postamble text.
+      // ── ROBUST JSON SANITIZATION ──
+      text = this.sanitizeJson(text);
+      
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         text = jsonMatch[0];
@@ -231,7 +232,8 @@ Generate the updated job description incorporating all changes.`;
         model: this.modelName,
         messages: [{ role: 'user', content: prompt }],
       });
-      const text = response.choices[0].message.content?.trim() || '';
+      let text = response.choices[0].message.content?.trim() || '';
+      text = this.sanitizeJson(text);
       const jsonMatch = text.match(/\[[\s\S]*?\]/);
       
       if (jsonMatch) {
@@ -289,8 +291,11 @@ Generate the updated job description incorporating all changes.`;
       const response = await this.openai.chat.completions.create({
         model: this.modelName,
         messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
       });
       let text = response.choices[0].message.content?.trim() || '';
+      // Sanitize potential invalid escapes
+      text = this.sanitizeJson(text);
       
       // Strip markdown code blocks if the AI maliciously added them despite instructions
       if (text.startsWith('```json')) {
@@ -354,8 +359,10 @@ ${dto.generatedJD}
       const response = await this.openai.chat.completions.create({
         model: this.modelName,
         messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
       });
-      const text = response.choices[0].message.content?.trim() || '';
+      let text = response.choices[0].message.content?.trim() || '';
+      text = this.sanitizeJson(text);
       const jsonMatch = text.match(/\{[\s\S]*?\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
@@ -418,5 +425,16 @@ ${dto.generatedJD}
     if (!jd) throw new NotFoundException(`JD with ID ${id} not found`);
     await this.jdRepository.delete(id);
     return { message: 'Job description deleted successfully' };
+  }
+
+  private sanitizeJson(text: string): string {
+    return text
+      .replace(/\\\n/g, '\\n') // Fix trailing backslashes followed by literal newlines
+      .replace(/\\\r\n/g, '\\n') // Fix Windows-style newlines
+      .replace(/\\"/g, '"')      // Fix over-escaped quotes occasionally seen
+      .replace(/"\s*:\s*"([^"]*)"/g, (match, p1) => {
+        // Ensure literal newlines inside string values are escaped
+        return `": "${p1.replace(/\n/g, '\\n')}"`;
+      });
   }
 }
