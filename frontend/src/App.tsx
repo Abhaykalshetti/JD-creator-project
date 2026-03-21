@@ -103,7 +103,7 @@ export default function App() {
     setActiveVariant(0);
     try {
       const res = await api.generateJD({ ...formData, skills });
-      const variantList = res.variants ?? [{ label: '🎯 Formal', jd: res.generatedJD }];
+      const variantList = res.variants ?? [{ label: 'Formal', jd: res.generatedJD }];
       setVariants(variantList);
       setGeneratedJD(variantList[0].jd);
       setSelectedVariants(new Set([0]));
@@ -217,7 +217,7 @@ export default function App() {
         if (variants[activeVariant]) {
           toSave.push(variants[activeVariant]);
         } else {
-          toSave.push({ label: 'Manual Edit', jd: generatedJD });
+          toSave.push({ label: 'Original', jd: generatedJD });
         }
       }
 
