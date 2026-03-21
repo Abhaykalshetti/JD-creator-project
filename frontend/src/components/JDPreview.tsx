@@ -52,7 +52,7 @@ export default function JDPreview({
           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Formal · Engaging · Concise — pick the best one</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          {['🎯 Formal', '🚀 Engaging', '⚡ Concise'].map((label, i) => (
+          {['Formal', 'Engaging', 'Concise'].map((label, i) => (
             <div key={i} style={{
               flex: 1, height: 80, borderRadius: 10, padding: '12px 14px',
               background: VARIANT_COLORS[i].bg,
@@ -146,7 +146,7 @@ export default function JDPreview({
       {/* Header */}
       <div className="preview-header">
         <div className="preview-title" style={{ color: activeColor.accent }}>
-          {variants[activeVariant]?.label ?? '📄'} Generated Job Description
+          {variants[activeVariant]?.label ?? 'JD'} Variant Preview
         </div>
         <div className="preview-actions">
           <button
