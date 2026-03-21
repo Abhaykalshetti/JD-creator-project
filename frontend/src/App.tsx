@@ -1,6 +1,6 @@
 import './index.css';
 import './App.css';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import JDForm from './components/JDForm';
 import JDPreview from './components/JDPreview';
