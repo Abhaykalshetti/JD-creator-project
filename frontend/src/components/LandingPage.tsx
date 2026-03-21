@@ -94,18 +94,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin }) => {
         </div>
       </section>
 
-      {/* Tech Stack Preview */}
-      <section className="tech-section">
-        <p className="tech-label">POWERED BY MODERN TECH</p>
-        <div className="tech-icons">
-          <div className="tech-tag">React</div>
-          <div className="tech-tag">NestJS</div>
-          <div className="tech-tag">Groq AI</div>
-          <div className="tech-tag">PostgreSQL</div>
-          <div className="tech-tag">Tailwind</div>
-        </div>
-      </section>
-
       {/* Footer CTA */}
       <section className="footer-cta">
         <h2>Ready to transform your hiring process?</h2>
