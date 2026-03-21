@@ -15,13 +15,12 @@ import { User } from './auth/user.entity';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: config.get<number>('DB_PORT'),
-        username: config.get<string>('DB_USER'),
-        password: config.get<string>('DB_PASS'),
-        database: config.get<string>('DB_NAME'),
+        url: config.get<string>('DATABASE_URL'),
         entities: [JobDescription, User],
-        synchronize: true,
+        synchronize: true, // Should be true for Neon DB sync as requested
+        ssl: {
+          rejectUnauthorized: false,
+        },
         logging: false,
       }),
     }),
