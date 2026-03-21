@@ -9,6 +9,7 @@ import SavedJDs from './components/SavedJDs';
 import { api } from './services/api';
 import { useAuth } from './AuthContext';
 import AuthForms from './components/AuthForms';
+import LandingPage from './components/LandingPage';
 import type {
   FormData, JDVariant, QualityResult, SavedJD, SavedJDDetail, TabType, Notification,
 } from './types';
@@ -32,6 +33,8 @@ export default function App() {
   const [quality, setQuality] = useState<QualityResult | null>(null);
   const [savedJDs, setSavedJDs] = useState<SavedJD[]>([]);
   const [notification, setNotification] = useState<Notification | null>(null);
+  const [unauthView, setUnauthView] = useState<'landing' | 'auth'>('landing');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSuggestingSkills, setIsSuggestingSkills] = useState(false);
@@ -291,9 +294,32 @@ export default function App() {
   if (!user) {
     return (
       <div className="app">
-        <Header activeTab="create" setActiveTab={() => {}} savedCount={0} />
+        <Header 
+          activeTab="create" 
+          setActiveTab={() => {}} 
+          savedCount={0} 
+          onShowAuth={(mode) => {
+            setUnauthView('auth');
+            setAuthMode(mode);
+          }}
+          onShowLanding={() => setUnauthView('landing')}
+          isAuthView={unauthView === 'auth'}
+        />
         <main className="main-content">
-          <AuthForms />
+          {unauthView === 'landing' ? (
+            <LandingPage 
+              onGetStarted={() => {
+                setUnauthView('auth');
+                setAuthMode('register');
+              }}
+              onLogin={() => {
+                setUnauthView('auth');
+                setAuthMode('login');
+              }}
+            />
+          ) : (
+            <AuthForms initialMode={authMode} />
+          )}
         </main>
       </div>
     );
