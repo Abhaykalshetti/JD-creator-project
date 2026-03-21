@@ -54,8 +54,10 @@ export class JdService {
 1. Ensure the JD is clear, concise, and professional.
 2. Avoid overly generic descriptions; tailor it to the specific role.
 3. Maintain consistent formatting. 
-4. DO NOT include unrelated explanations, conversational filler, or preamble.
+4. DO NOT include unrelated explanations, conversational filler, comments, or preamble.
 5. Provide the exact sections requested below.
+6. Use ONLY plain text. DO NOT use markdown symbols like ** or ##.
+7. DO NOT use special characters or emojis.
 
 ### ROLE INPUTS
 - Job Title: ${dto.jobTitle}
@@ -73,25 +75,25 @@ For each generated variant, include only plain text with these sections:
 1. Job Title
 2. Company Overview (2-3 sentences)
 3. Job Summary
-4. Key Responsibilities (6-8 bullet points using •)
-5. Required Skills & Qualifications (bullet points using •)
-6. Preferred Skills (optional, bullet points using •)
+4. Key Responsibilities (6-8 bullet points using simple dash -)
+5. Required Skills & Qualifications (bullet points using simple dash -)
+6. Preferred Skills (optional, bullet points using simple dash -)
 7. Work Details (Location, Type, Experience, Salary)
 8. Benefits
 9. Application Process
 
 ### INSTRUCTIONS
 You must generate THREE versions of this job description based on the exact structure above, but varying the tone:
-1. "🎯 Formal": Corporate, authoritative, direct, and highly professional.
-2. "🚀 Engaging": Energetic, enthusiastic, candidate-friendly with inclusive language.
-3. "⚡ Concise": To-the-point, brief, with no filler words. 
+1. "Formal": Corporate, authoritative, direct, and highly professional.
+2. "Engaging": Energetic, enthusiastic, candidate-friendly with inclusive language.
+3. "Concise": To-the-point, brief, with no filler words. 
 
 Return ONLY a strictly valid JSON object matching this format. Use "\\n" for all newlines within the "jd" string values. Do NOT use trailing backslashes for line continuation.
 {
   "variants": [
-    { "label": "🎯 Formal", "jd": "<formal text here>" },
-    { "label": "🚀 Engaging", "jd": "<engaging text here>" },
-    { "label": "⚡ Concise", "jd": "<concise text here>" }
+    { "label": "Formal", "jd": "<formal text here>" },
+    { "label": "Engaging", "jd": "<engaging text here>" },
+    { "label": "Concise", "jd": "<concise text here>" }
   ]
 }`;
  
@@ -142,7 +144,7 @@ Return ONLY a strictly valid JSON object matching this format. Use "\\n" for all
         // Last resort fallback: if it's not JSON, treat the whole response as a single JD
         return {
           generatedJD: text,
-          variants: [{ label: '🎯 Formal', jd: text }],
+          variants: [{ label: 'Formal', jd: text }],
         };
       }
     } catch (error) {
@@ -163,8 +165,9 @@ Return ONLY a strictly valid JSON object matching this format. Use "\\n" for all
 1. Apply the recruiter's instruction precisely and professionally.
 2. Preserve the original structure and all sections.
 3. DO NOT add markdown symbols like ** or ##. Use plain text only.
-4. Use • for all bullet points.
-5. Return ONLY the refined job description text, nothing else — no explanations, no notes, no preamble.
+4. Use simple dash - for all bullet points.
+5. DO NOT use special characters or emojis.
+6. Return ONLY the refined job description text, nothing else — no explanations, no notes, no preamble, no comments.
 
 ### INPUTS
 EXISTING JOB DESCRIPTION:
@@ -270,11 +273,13 @@ Generate the updated job description incorporating all changes.`;
     const prompt = `You are a Senior HR Executive and Expert Technical Recruiter. Draft the detailed "Responsibilities" and "Qualifications" sections for a job role.
 
 ### CONSTRAINTS
-1. Create professional and realistic bullet points starting with "• ".
+1. Create professional and realistic bullet points starting with "- ".
 2. Use "\\n" for newlines in the string values.
 3. Provide 6-8 bullet points for responsibilities and 4-6 for qualifications.
-4. Return ONLY a valid JSON object. 
-5. No markdown formatting, no preamble.
+4. Use ONLY plain text. NO markdown (** or ##).
+5. DO NOT use special characters or emojis.
+6. Return ONLY a valid JSON object. 
+7. No markdown formatting, no preamble, no comments.
 
 ### INPUTS
 - Job Title: ${dto.jobTitle}
@@ -283,8 +288,8 @@ Generate the updated job description incorporating all changes.`;
 
 ### EXPECTED JSON FORMAT
 {
-  "responsibilities": "• Responsibility 1\\n• Responsibility 2",
-  "qualifications": "• Qualification 1\\n• Qualification 2"
+  "responsibilities": "- Responsibility 1\\n- Responsibility 2",
+  "qualifications": "- Qualification 1\\n- Qualification 2"
 }`;
 
     try {
