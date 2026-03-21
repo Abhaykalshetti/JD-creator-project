@@ -7,6 +7,7 @@ export default function AuthForms() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
 
@@ -21,8 +22,9 @@ export default function AuthForms() {
         login(res.access_token);
       } else {
         await api.register({ email, password });
-        const res = await api.login({ email, password });
-        login(res.access_token);
+        setSuccess('Account created successfully! Please sign in with your credentials.');
+        setIsLogin(true);
+        setPassword('');
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
@@ -60,6 +62,12 @@ export default function AuthForms() {
         {error && (
           <div className="notification error" style={{ position: 'relative', bottom: 'auto', right: 'auto', width: '100%', marginBottom: '1.5rem', animation: 'none' }}>
             {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="notification success" style={{ position: 'relative', bottom: 'auto', right: 'auto', width: '100%', marginBottom: '1.5rem', animation: 'none', backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--success)', color: 'var(--success)' }}>
+            {success}
           </div>
         )}
 
@@ -103,7 +111,7 @@ export default function AuthForms() {
         <div style={{ textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
           {isLogin ? "Don't have an account? " : "Already have an account? "}
           <button
-            onClick={() => { setIsLogin(!isLogin); setError(''); }}
+            onClick={() => { setIsLogin(!isLogin); setError(''); setSuccess(''); }}
             style={{ background: 'none', border: 'none', color: '#a78bfa', fontWeight: 600, cursor: 'pointer', padding: 0, transition: 'color 0.2s', fontFamily: 'inherit' }}
             onMouseOver={(e) => e.currentTarget.style.color = '#c4b5fd'}
             onMouseOut={(e) => e.currentTarget.style.color = '#a78bfa'}
