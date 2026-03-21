@@ -95,10 +95,51 @@ graph TD
 
 ## 📂 Project Structure
 
-- `frontend/`: React application, UI components, and styles.
-- `backend/`: NestJS modules, controllers, services, and database entities.
-- `PROJECT_DOCUMENTATION.md`: Detailed functional specs and workflows.
-- `project_architecture_details.md`: Deep dive into system design and AI logic.
+```text
+JD-Creation-project/
+├── backend/
+│   ├── src/
+│   │   ├── auth/              # Authentication module (JWT, Passport)
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── auth.module.ts
+│   │   │   ├── auth.service.ts
+│   │   │   ├── jwt.strategy.ts
+│   │   │   └── user.entity.ts
+│   │   ├── jd/                # Job Description core module
+│   │   │   ├── dto/           # Data Transfer Objects
+│   │   │   ├── entities/      # TypeORM Entities
+│   │   │   ├── jd.controller.ts
+│   │   │   ├── jd.module.ts
+│   │   │   └── jd.service.ts  # AI Logic & Prompts
+│   │   ├── app.module.ts      # Root Module
+│   │   └── main.ts            # Entry Point
+│   ├── test/                  # E2E Tests
+│   ├── .env                   # Backend Environment Config
+│   ├── nest-cli.json
+│   ├── package.json
+│   └── tsconfig.json
+├── frontend/
+│   ├── src/
+│   │   ├── assets/            # Static assets (images, svgs)
+│   │   ├── components/        # UI Components (Auth, JDForm, etc.)
+│   │   │   ├── AuthForms.tsx
+│   │   │   ├── Header.tsx
+│   │   │   ├── JDForm.tsx
+│   │   │   ├── LandingPage.tsx
+│   │   │   └── ProtectedRoute.tsx
+│   │   ├── App.tsx            # Main Application logic
+│   │   ├── AuthContext.tsx    # Auth State Management
+│   │   ├── index.css          # Core Styling
+│   │   └── main.tsx           # Entry Point
+│   ├── public/                # Public assets
+│   ├── .env                   # Frontend Environment Config
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.ts
+├── PROJECT_DOCUMENTATION.md   # Detailed functional specifications
+├── project_architecture_details.md # System & AI architecture deep dive
+└── README.md                  # Project overview
+```
 
 ## 📄 License
 
