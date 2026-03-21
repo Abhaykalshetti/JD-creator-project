@@ -18,6 +18,15 @@ import { User } from './auth/user.entity';
         url: config.get<string>('DATABASE_URL'),
         entities: [JobDescription, User],
         synchronize: true, // Should be true for Neon DB sync as requested
+        keepConnectionAlive: true,
+        extra: {
+          max: 15,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 20000, // Increased for Neon cold start
+          ssl: {
+            rejectUnauthorized: false,
+          },
+        },
         ssl: {
           rejectUnauthorized: false,
         },
