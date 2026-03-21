@@ -5,20 +5,30 @@ interface HeaderProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   savedCount: number;
+  onShowAuth?: (mode: 'login' | 'register') => void;
+  onShowLanding?: () => void;
+  isAuthView?: boolean;
 }
 
-export default function Header({ activeTab, setActiveTab, savedCount }: HeaderProps) {
+export default function Header({ 
+  activeTab, 
+  setActiveTab, 
+  savedCount, 
+  onShowAuth, 
+  onShowLanding,
+  isAuthView 
+}: HeaderProps) {
   const { user, logout } = useAuth();
 
   return (
     <header className="header">
-      <a className="header-logo" href="#">
+      <div className="header-logo" onClick={onShowLanding} style={{ cursor: 'pointer' }}>
         <div className="header-logo-icon">✦</div>
         <span className="header-logo-text gradient-text">JD Creator AI</span>
-      </a>
+      </div>
 
       <nav className="header-nav">
-        {user && (
+        {user ? (
           <>
             <button
               id="tab-create"
@@ -48,6 +58,18 @@ export default function Header({ activeTab, setActiveTab, savedCount }: HeaderPr
               </button>
             </div>
           </>
+        ) : (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className={`nav-tab ${!isAuthView ? 'active' : ''}`} onClick={onShowLanding}>
+              Home
+            </button>
+            <button className="nav-tab" onClick={() => onShowAuth?.('login')}>
+              Login
+            </button>
+            <button className="nav-tab active" onClick={() => onShowAuth?.('register')}>
+              Register
+            </button>
+          </div>
         )}
       </nav>
     </header>

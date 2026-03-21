@@ -1,15 +1,26 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { api } from '../services/api';
 
-export default function AuthForms() {
-  const [isLogin, setIsLogin] = useState(true);
+interface AuthFormsProps {
+  initialMode?: 'login' | 'register';
+}
+
+export default function AuthForms({ initialMode = 'login' }: AuthFormsProps) {
+  const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+
+  // Reset isLogin if initialMode changes while component is mounted (e.g. clicking Nav buttons)
+  React.useEffect(() => {
+    setIsLogin(initialMode === 'login');
+    setError('');
+    setSuccess('');
+  }, [initialMode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
