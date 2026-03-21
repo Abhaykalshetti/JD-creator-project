@@ -1,55 +1,80 @@
 # JD Creation Project Architecture & Functionality Document
+*Current Status: Active Development (Updated 2026-03-21)*
 
 ## 1. Project Overview
-The JD (Job Description) Creation Project is a full-stack web application designed to help recruiters and HR professionals generate, refine, cross-check, and manage high-quality job descriptions. It uses artificial intelligence (Groq Cloud API with Llama 3.1 8B model) to automate the writing process, suggest relevant skills, and evaluate the quality of the generated text.
+The JD Creation Project is a full-stack platform designed to automate and enhance the recruitment workflow. It leverages the Llama 3.1 8B model (via Groq Cloud API) to generate, refine, and audit job descriptions based on user inputs and industry best practices.
 
-## 2. Architecture & Technology Stack
-The application is built using a modern decoupled architecture separated into a frontend client and a backend API server.
+## 2. Architecture & Tech Stack
+The application is strictly decoupled, allowing for independent scaling and maintenance of the client and server.
 
-**Frontend (Client-Side):**
-- **Framework:** React 19 managed with Vite (TypeScript).
-- **Styling:** Vanilla CSS ([index.css](file:///d:/JD-Creation-project/frontend/src/index.css), [App.css](file:///d:/JD-Creation-project/frontend/src/App.css)).
-- **HTTP Client:** Axios for communicating with the backend API.
-- **Architecture Strategy:** Component-based UI. The main form ([JDForm.tsx](file:///d:/JD-Creation-project/frontend/src/components/JDForm.tsx)) captures user input and interacts with predefined domain states (templates) and triggers API calls.
+**Frontend:**
+- **Framework:** React 19 (Vite)
+- **Styling:** Custom Vanilla CSS with a focus on premium, modern aesthetics (Dark Mode optimized).
+- **Identity:** JWT-based session management using React Context.
+- **Components:** Modular structure (Auth, JD Form, Landing Page, Saved JDs).
 
-**Backend (Server-Side):**
-- **Framework:** NestJS (TypeScript), providing a structured, scalable module-based backend.
-- **Database ORM:** TypeORM configured for **PostgreSQL**.
-- **AI Integration:** OpenAI SDK configured for **Groq Cloud API** (`https://api.groq.com/openai/v1`) interacting with the `llama-3.1-8b-instant` model.
-- **Architecture Strategy:** Follows Controller-Service-Repository pattern. Request routing is handled by controllers ([jd.controller.ts](file:///d:/JD-Creation-project/backend/src/jd/jd.controller.ts)), business logic and AI prompts are handled by services ([jd.service.ts](file:///d:/JD-Creation-project/backend/src/jd/jd.service.ts)), and data is persisted via TypeORM repositories.
+**Backend:**
+- **Framework:** NestJS (Modular, TypeScript-first).
+- **Runtime:** Node.js.
+- **Database:** Neon PostgreSQL (Cloud Managed).
+- **ORM:** TypeORM.
+- **AI Integration:** Groq API using OpenAI's high-speed completion interface.
 
-## 3. Core Functionality & How It Works
+## 3. Core Functionality & Logic
 
-The application provides several features to simplify JD creation:
+### A. Role Templates
+- Predefined domain states (Technology, Business, Creative, Operations).
+- Instant state override on the frontend to speed up repetitive JD creation.
 
-### A. Role Templates (Frontend Pre-population)
-- The frontend features predefined templates grouped by domain (e.g., Technology, Business, Operations, Creative).
-- Clicking a template instantly auto-fills the job title, department, core skills, common responsibilities, and qualifications, overriding the current form state to speed up data entry.
+### B. AI Skill Suggestions (`/jd/suggest-skills`)
+- Acts as a technical recruiter persona.
+- Analyzes job title and experience to suggest technical, soft, and tool-specific skills.
+- Returns clickable chips that dynamically update the "Required Skills" list.
 
-### B. AI Skill Suggestions
-1. **Flow:** If a recruiter gives a job title and experience level, they can click "AI Suggest Skills".
-2. **Backend Logic:** The `/suggest-skills` endpoint prompts the AI to act as a technical recruiter and suggest 10-12 additional skills tailored specifically to the role and experience tier.
-3. **Response:** Parses a JSON array from the AI and renders them on the frontend as clickable chips that can be added to the current required skills.
+### C. Auto-Fill Details (`/jd/suggest-req-qual`)
+- Generates industry-standard responsibilities and qualifications.
+- Prevents "blank page syndrome" by providing a solid baseline for the recruiter to edit.
 
-### C. Auto-Fill Details (Responsibilities & Qualifications)
-1. **Flow:** The user can click "Auto-Fill" to generate standard bullet points for responsibilities and qualifications.
-2. **Backend Logic:** The `/suggest-req-qual` endpoint prompts the AI to draft 6-8 bullet points for responsibilities and 4-6 for qualifications based on the job title, experience level, and currently selected skills.
-3. **Response:** The AI returns structured JSON which is then mapped into the respective text areas in the frontend form.
+### D. Multi-Variant Generation (`/jd/generate`)
+- Generates **Formal**, **Engaging**, and **Concise** variants in parallel.
+- Logic is encapsulated in `JdService`, handling prompt construction and multi-output parsing.
 
-### D. AI Job Description Generation
-1. **Flow:** The user fills out a form containing all collected data (title, company, skills, location, responsibilities, etc.) and clicks "Generate Job Description".
-2. **Backend Logic:** The `/generate` endpoint constructs a highly structured prompt.
-3. **Variants Generation:** The AI executes this generation in parallel for three distinct tones: **Formal**, **Engaging**, and **Concise**, returning all three variants so the recruiter can choose the best cultural fit.
+### E. Natural Language Refinement (`/jd/refine`)
+- A powerful iterative tool where users can "talk" to their JD.
+- Example: "Add a section about our unlimited vacation policy" or "Make the language more inclusive".
+- Preserves the core structure while applying targeted modifications.
 
-### E. AI JD Refinement (Iterative Improvement)
-1. **Flow:** A unique capability where a user can provide natural language instructions against an already generated JD.
-2. **Backend Logic:** The `/refine` endpoint sends the existing JD and the instruction back to the AI. The model applies the instruction while preserving the original structure of the JD, returning the newly refined text.
+### F. Automated Quality Audit (`/jd/check-quality`)
+- Analyzes JD text against specific criteria: Clarity, Completeness, Conciseness, and Candidate Appeal.
+- Returns a numerical score, a grade, and 3-5 specific, actionable suggestions for improvement.
 
-### F. JD Quality Check
-1. **Flow:** Once a JD is generated, the tool can run an automated audit on it.
-2. **Backend Logic:** The `/check-quality` endpoint parses the JD text and asks the AI to evaluate it based on completeness, clarity, specificity, tone, and candidate appeal.
-3. **Response:** Returns a numerical quality score (0-100), a categorical grade (Excellent, Good, Fair, Poor), and an array of 3-5 actionable improvement suggestions.
+### G. Persistent Dashboard
+- Users can save their variants to Neon Postgres.
+- Full CRUD capability: Create, Read (List/Detail), and Delete.
+- All saved records are tied to the authenticated user's ID.
 
-### G. Saving and Managing JDs
-- Generated and Refined Job Descriptions can be persisted to the PostgreSQL database.
-- These can be fetched in a list (`GET /saved`), viewed individually (`GET /saved/:id`), or deleted (`DELETE /saved/:id`) using standard REST operations through the [JdController](file:///d:/JD-Creation-project/backend/src/jd/jd.controller.ts).
+## 4. System Design Diagram
+```mermaid
+graph LR
+    subgraph Client
+        UI[React UI]
+        Auth[Auth Context]
+    end
+    
+    subgraph Server
+        NC[NestJS Controllers]
+        NS[NestJS Services]
+        NR[TypeORM Repositories]
+    end
+    
+    subgraph External
+        DB[(Neon Postgres DB)]
+        Groq[Groq AI/Llama 3.1]
+    end
+    
+    UI <--> NC
+    NC <--> NS
+    NS <--> NR
+    NS <--> Groq
+    NR <--> DB
+```
