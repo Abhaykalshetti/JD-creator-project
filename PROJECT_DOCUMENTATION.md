@@ -1,4 +1,5 @@
 # JD Creation Project: Detailed Documentation
+*Last Updated: 2026-03-21*
 
 ## 1. Project Overview
 The **JD Creation Tool** is an AI-powered platform designed to streamline the recruitment process by automating the generation of high-quality, professional job descriptions. It leverages advanced LLMs (Large Language Models) to provide recruiters with multiple JD variants, intelligent skill suggestions, and automated quality audits.
@@ -14,19 +15,20 @@ The **JD Creation Tool** is an AI-powered platform designed to streamline the re
 ## 2. Requirements & Use Cases
 
 ### Functional Requirements
-- **User Authentication**: Secure sign-up/sign-in using JWT.
+- **User Authentication**: Secure sign-up/sign-in using JWT and Passport.js.
 - **AI-Powered Generation**: Generate JDs based on role, company, skills, and experience.
-- **Variant Generation**: Provide 3 distinct tones for every generation request.
-- **Intelligent Suggestions**: Auto-suggest skills and auto-fill responsibilities/qualifications.
+- **Variant Generation**: Provide 3 distinct tones (Formal, Engaging, Concise) for every generation request.
+- **Intelligent Suggestions**: Auto-suggest skills based on the job title and experience.
+- **Auto-Fill Logic**: Automatically draft baseline responsibilities and qualifications.
 - **JD Refinement**: Modify existing JDs using natural language instructions.
 - **Quality Audit**: Evaluate JDs based on score, grade, and actionable suggestions.
-- **Persistence**: Save, view, and delete JDs for future use.
+- **Persistence**: Save, view, and delete JDs for future use in a personal dashboard.
 
 ### Technical Requirements
-- **Decoupled Architecture**: Separate frontend and backend services.
-- **AI Integration**: Integration with high-performance LLMs (Groq/Llama).
-- **Robust Data Handling**: Structured JSON responses from AI with error fallback.
-- **Relational Storage**: Persistent storage for users and saved JDs.
+- **Decoupled Architecture**: Separate React frontend and NestJS backend.
+- **AI Integration**: Integration with Groq Cloud API (Llama 3.1 8B Instant).
+- **Cloud Database**: Persistent storage using Neon PostgreSQL.
+- **Robust Data Handling**: Structured JSON responses from AI with automated parsing and fault tolerance.
 
 ### Use Cases
 - **Technical Recruiters**: Quickly drafting complex software engineering JDs.
@@ -40,36 +42,35 @@ The **JD Creation Tool** is an AI-powered platform designed to streamline the re
 
 ### Frontend (Client-Side)
 - **Framework**: React 19 (managed with Vite)
-- **State Management**: React Context (AuthContext)
-- **Styling**: Vanilla CSS (Premium, custom-built design system)
-- **API Communication**: Axios
-- **Form Handling**: Custom state-driven forms in `JDForm.tsx`
+- **State Management**: React Context (AuthContext) for session persistence.
+- **Styling**: Vanilla CSS (Premium, custom-built design system with modern aesthetics).
+- **API Communication**: Axios with interceptors for JWT injection.
 
 ### Backend (Server-Side)
-- **Framework**: NestJS (TypeScript)
+- **Framework**: NestJS (Modular Architecture)
 - **Database ORM**: TypeORM
-- **Database**: PostgreSQL
+- **Database**: PostgreSQL (Hosted on Neon Cloud)
 - **AI Engine**: Groq Cloud API (Model: `llama-3.1-8b-instant`)
-- **Authentication**: Passport.js with JWT Strategy
-- **Documentation**: Swagger/OpenAPI (built-in NestJS)
+- **Authentication**: Passport.js with JWT Strategy and Bcrypt for password hashing.
+- **Documentation**: Swagger/OpenAPI for API discovery.
 
 ---
 
 ## 4. Workflow
 
 ### Standard User Journey
-1. **Authentication**: User logs in or creates an account.
-2. **Setup**: User selects a JD template or enters a Job Title and Experience Level.
-3. **Drafting (Optional AI Assist)**:
-   - Click "AI Suggest Skills" to get role-specific technical and soft skills.
-   - Click "Auto-Fill" to generate baseline Responsibilities and Qualifications.
-4. **Generation**: User clicks "Generate JD" to produce 3 variants (Formal, Engaging, Concise).
-5. **Selection & Refinement**:
+1. **Authentication**: User logs in or creates a new account.
+2. **Dashboard**: User views previously saved JDs or starts a new creation.
+3. **Setup**: User enters Job Title, Company, Experience, and Location (or uses a Template).
+4. **Drafting (AI Assist)**:
+   - Click "AI Suggest Skills" to get role-specific technical/soft skill chips.
+   - Click "Auto-Fill" to generate baseline bullet points for Responsibilities and Qualifications.
+5. **Generation**: User clicks "Generate JD" to produce 3 variants.
+6. **Selection & Refinement**:
    - User chooses a variant.
-   - User provides instructions (e.g., "Make it sound more like a startup" or "Add information about remote work benefits") to refine the text.
-6. **Quality Check**: User runs a quality audit to see the score and areas for improvement.
-7. **Saving**: User saves the final JD to their dashboard.
-8. **Management**: User can access their library of saved JDs anytime.
+   - User provides natural language instructions (e.g., "Add a focus on remote work") to refine the text.
+7. **Quality Check**: User runs an automated audit to receive a score and feedback.
+8. **Saving**: User saves the final JD to their library.
 
 ---
 
@@ -80,7 +81,7 @@ The **JD Creation Tool** is an AI-powered platform designed to streamline the re
 graph TD
     User((User)) -->|Interacts| Frontend[React Frontend]
     Frontend -->|HTTP Requests| Backend[NestJS API Server]
-    Backend -->|Queries| DB[(PostgreSQL Database)]
+    Backend -->|Queries| DB[(Neon Postgres)]
     Backend -->|API Calls| AI[Groq AI Service]
     AI -->|JSON Responses| Backend
     DB --> Backend
@@ -96,7 +97,7 @@ sequenceDiagram
     participant F as Frontend (React)
     participant B as Backend (NestJS)
     participant A as Groq (Llama 3.1)
-    participant D as Database (Postgres)
+    participant D as Database (Neon Postgres)
 
     U->>F: Fills Form & Clicks Generate
     F->>B: POST /jd/generate (DTO)
@@ -116,7 +117,8 @@ sequenceDiagram
 ---
 
 ## 6. Implementation Highlights
-- **Parallel Generation**: Variants are generated in a single LLM call using structured prompts for efficiency.
-- **Robust JSON Parsing**: The backend includes logic to extract JSON from AI responses even if the model adds preamble or formatting mistakes.
-- **State Management**: React Context ensures that a user's session is maintained globally across the dashboard and JD creator.
-- **Premium UI**: Custom CSS variables and components ensure a modern, professional look without the overhead of heavy CSS frameworks.
+- **Cloud-Native Database**: Optimized for Neon PostgreSQL with SSL and connection pooling.
+- **Parallel Variant Generation**: 3 variants generated in a single LLM pass for better UX.
+- **Iterative Refinement**: High-precision AI logic that respects user instructions while maintaining document structure.
+- **Automated Quality Audits**: Real-time feedback loop for recruiters to improve job postings.
+- **Responsive Premium Design**: Mobile-friendly dashboard with glassmorphism and smooth micro-animations.
